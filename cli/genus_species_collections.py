@@ -59,10 +59,10 @@ class ProcessCollections():
                 species = self.files[collectionType][file]['species']
                 infraspecies = self.files[collectionType][file]['infraspecies']
                 if collectionType == 'genomes':
-                    cmd = f'jbrowse add-assembly -a {name} --out {self.out_dir}/ -t bgzipFasta'
+                    cmd = f'jbrowse add-assembly -a {name} --out {self.out_dir}/ -t bgzipFasta --force'
                     cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
                 if collectionType == 'annotations':
-                    cmd = f'jbrowse add-track -a {parent} --out {self.out_dir}/'
+                    cmd = f'jbrowse add-track -a {parent} --out {self.out_dir}/ --force'
                     cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
                 print(cmd)
                 if subprocess.check_call(cmd, shell=True):

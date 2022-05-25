@@ -12,5 +12,7 @@ def collections(taxa_list, jbrowse_out):
     '''CLI entry for populate-jekyll'''
     click.echo("Populating Collections...")
     parser = ProcessCollections()  # initialize class
+    click.echo("Generating Collections...")
     parser.parse_collections(taxa_list)  # parse_collections
+    click.echo("Creating JBrowse Instance...")
     parser.deploy_jbrowse2(jbrowse_out)  # populate JBrowse2
