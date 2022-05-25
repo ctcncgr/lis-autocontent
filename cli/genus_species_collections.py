@@ -69,7 +69,8 @@ class ProcessCollections():
                     print("ERROR: {cmd}")
 
     def parse_collections(self, target="../_data/taxon_list.yml"):
-        '''Retrieve and output collections for jekyll site'''    
+        '''Retrieve and output collections for jekyll site'''
+        print(target)
         taxonList = yaml.load(open(target, 'r').read(),
                                    Loader=yaml.FullLoader)  # load taxon list
         for taxon in taxonList:
