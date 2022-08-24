@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import yaml
-import requests
+import os
 import sys
+import yaml
+import pathlib
+import requests
 import subprocess
 from html.parser import HTMLParser
 
@@ -45,9 +47,10 @@ class ProcessCollections():
         strain = parts[-2]  # get strain and key information
         return (gensp, strain)
 
-    def deploy_jbrowse2(self, out_dir="/var/www/html/jbrowse_autodeploy"):
+    def deploy_jbrowse2(self, out_dir="/var/www/html/jbrowse2_autodeploy"):
         '''deploy jbrowse2 from collected objects'''
         self.out_dir = out_dir
+        pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True)
         for collectionType in self.collection_types:
             for file in self.files[collectionType]:
                # jbrowse add-assembly -a alis -n "full name" --out /path/to/jbrowse2 URL
@@ -64,11 +67,13 @@ class ProcessCollections():
                 if collectionType == 'annotations':
                     cmd = f'jbrowse add-track -a {parent} --out {self.out_dir}/ --force'
                     cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
+                if not cmd:
+                    return
                 print(cmd)
-                if subprocess.check_call(cmd, shell=True):
-                    print("ERROR: {cmd}")
+                #if subprocess.check_call(cmd, shell=True):
+                #    print("ERROR: {cmd}")
 
-    def parse_collections(self, target="../_data/taxon_list.yml"):
+    def parse_collections(self, target="../_data/taxon_list.yml", species_collections=None):
         '''Retrieve and output collections for jekyll site'''
         print(target)
         taxonList = yaml.load(open(target, 'r').read(),
@@ -80,20 +85,30 @@ class ProcessCollections():
             genus = taxon['genus']
             genusDescriptionUrl = f'{self.datastore_url}/{genus}/GENUS/about_this_collection/description_{genus}.yml'
             genusDescriptionResponse = requests.get(genusDescriptionUrl)
+            speciesCollectionsFile = None
             if genusDescriptionResponse.status_code==200:  # Genus Description yml SUCCESS
+                speciesCollectionsFilename = None
                 genusDescription = yaml.load(genusDescriptionResponse.text, Loader=yaml.FullLoader)
-                speciesCollectionsFilename = "../_data/taxa/"+taxon["genus"]+"/species_collections.yml"  # change this to fstring
-                speciesCollectionsFile = open(speciesCollectionsFilename, 'w')
-                print('---', file=speciesCollectionsFile)
-                print('species:', file=speciesCollectionsFile)
+                if species_collections:
+                    collection_dir = f'{os.path.abspath(species_collections)}/{taxon["genus"]}'
+                    pathlib.Path(collection_dir).mkdir(parents=True, exist_ok=True)
+                    speciesCollectionsFilename = f'{collection_dir}/species_collections.yml'
+#                if not speciesCollectionsFilename:
+#                    speciesCollectionsFilename = "../_data/taxa/"+taxon["genus"]+"/species_collections.yml"  # change this to fstring
+                if speciesCollectionsFilename:
+                    speciesCollectionsFile = open(speciesCollectionsFilename, 'w')
+                    print('---', file=speciesCollectionsFile)
+                    print('species:', file=speciesCollectionsFile)
                 for species in genusDescription["species"]:
                     print("### "+taxon["genus"]+" "+species)
-                    print('- '+'name: '+species, file=speciesCollectionsFile)
+                    if speciesCollectionsFilename:
+                        print('- '+'name: '+species, file=speciesCollectionsFile)
                     speciesUrl = f'{self.datastore_url}/{genus}/{species}'
                     for collectionType in self.collection_types:
                         if collectionType not in self.files:  # add new type
                             self.files[collectionType] = {}
-                        print('  '+collectionType+':', file=speciesCollectionsFile)
+                        if speciesCollectionsFilename:
+                            print('  '+collectionType+':', file=speciesCollectionsFile)
                         collectionsUrl = speciesUrl+"/"+collectionType+"/"
                         collectionsResponse = requests.get(collectionsUrl)
                         if collectionsResponse.status_code==200:  # Collections SUCCESS
@@ -123,8 +138,9 @@ class ProcessCollections():
                                 if readmeResponse.status_code==200:
                                     readme = yaml.load(readmeResponse.text, Loader=yaml.FullLoader)
                                     synopsis = readme["synopsis"]
-                                    print('    - collection: '+name, file=speciesCollectionsFile)
-                                    print('      synopsis: "'+synopsis+'"', file=speciesCollectionsFile)
+                                    if speciesCollectionsFilename:
+                                        print('    - collection: '+name, file=speciesCollectionsFile)
+                                        print('      synopsis: "'+synopsis+'"', file=speciesCollectionsFile)
                                 else:  # README FAILURE
                                     print(f'GET Failed for README {readmeResponse.status_code} {readmeUrl}')  # change to log
 #                                    sys.exit(1)
