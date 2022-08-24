@@ -70,8 +70,8 @@ class ProcessCollections():
                 if not cmd:
                     return
                 print(cmd)
-                #if subprocess.check_call(cmd, shell=True):
-                #    print("ERROR: {cmd}")
+                if subprocess.check_call(cmd, shell=True):
+                    print("ERROR: {cmd}")
 
     def parse_collections(self, target="../_data/taxon_list.yml", species_collections=None):
         '''Retrieve and output collections for jekyll site'''
