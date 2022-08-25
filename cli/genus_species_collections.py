@@ -47,7 +47,7 @@ class ProcessCollections():
         strain = parts[-2]  # get strain and key information
         return (gensp, strain)
 
-    def deploy_jbrowse2(self, out_dir="/var/www/html/jbrowse2_autodeploy"):
+    def deploy_jbrowse2(self, out_dir="/var/www/html/jbrowse2_autodeploy", cmds_only=None):
         '''deploy jbrowse2 from collected objects'''
         self.out_dir = out_dir
         pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True)
@@ -69,8 +69,9 @@ class ProcessCollections():
                     cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
                 if not cmd:
                     return
-                print(cmd)
-                if subprocess.check_call(cmd, shell=True):
+                if cmds_only:
+                    print(cmd)
+                elif subprocess.check_call(cmd, shell=True):
                     print("ERROR: {cmd}")
 
     def parse_collections(self, target="../_data/taxon_list.yml", species_collections=None):
