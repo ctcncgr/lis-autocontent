@@ -21,7 +21,7 @@ class ProcessCollections():
                                  "genetic", "markers"]  # types to search for
 
     def parse_attributes(self, response_text):  # inherited from Sammyjava 
-        '''parses attributes returned from HTMLParser'''
+        '''parses attributes returned from HTMLParser. Credit to SammyJava'''
         collections = []
 #        relationships = {'genomes': {}, 'annotations': {}}  # establish related objects
 
@@ -47,9 +47,8 @@ class ProcessCollections():
         strain = parts[-2]  # get strain and key information
         return (gensp, strain)
 
-    def deploy_jbrowse2(self, out_dir="/var/www/html/jbrowse2_autodeploy", cmds_only=None):
-        '''deploy jbrowse2 from collected objects'''
-        self.out_dir = out_dir
+    def process_collections(self, cmds_only, mode):
+        '''General method to create a jbrowse-components config or populate a blast db using mode'''
         pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True)
         for collectionType in self.collection_types:
             for file in self.files[collectionType]:
@@ -61,22 +60,40 @@ class ProcessCollections():
                 parent = self.files[collectionType][file]['parent']
                 species = self.files[collectionType][file]['species']
                 infraspecies = self.files[collectionType][file]['infraspecies']
-                if collectionType == 'genomes':
-                    cmd = f'jbrowse add-assembly -a {name} --out {self.out_dir}/ -t bgzipFasta --force'
-                    cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
-                if collectionType == 'annotations':
-                    cmd = f'jbrowse add-track -a {parent} --out {self.out_dir}/ --force'
-                    cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
-                if not cmd:
+                if collectionType == 'genomes':  # add genome for jbrowse-components
+                    if mode == "jbrowse":
+                        cmd = f'jbrowse add-assembly -a {name} --out {self.out_dir}/ -t bgzipFasta --force'
+                        cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
+                    elif mode == "blast":
+                        cmd = f'set -o pipefail -o errexit -o nounset; curl {url} | gzip -dc'  # retrieve genome and decompress
+                        cmd += f'| makeblastdb -parse_seqids -out {self.out_dir}/{name} -hash_index -dbtype nucl -title "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}"'
+                if collectionType == 'annotations':  # add annotation for jbrowse-components
+                    if mode == "jbrowse":
+                        cmd = f'jbrowse add-track -a {parent} --out {self.out_dir}/ --force'
+                        cmd += f' -n "{genus.capitalize()} {species} {infraspecies} {collectionType.capitalize()}" {url}'
+                # MORE CANONICAL TYPES HERE
+                if not cmd:  # return for null objects
                     return
-                if cmds_only:
+                if cmds_only:  # output only cmds
                     print(cmd)
-                elif subprocess.check_call(cmd, shell=True):
+                elif subprocess.check_call(cmd, shell=True):  # execute cmd and check exit value = 0
                     print("ERROR: {cmd}")
+
+    def populate_jbrowse2(self, out_dir="/var/www/html/jbrowse2_autodeploy", cmds_only=False):
+        '''deploy jbrowse2 from collected objects'''
+        self.out_dir = out_dir
+        pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True)
+        self.process_collections(cmds_only, "jbrowse")  # process collections for jbrowse-components
+
+    def populate_blast(self, out_dir="/var/www/html/db/Genomic_Sequence_Collection", cmds_only=False):
+        '''Populate a BLAST db for genome_main, mrna/mrna_primary and protein/protein_primary'''
+        self.out_dir = out_dir
+        pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True)
+        self.process_collections(cmds_only, "blast")  # process collections for BLAST sequenceserver
 
     def parse_collections(self, target="../_data/taxon_list.yml", species_collections=None):
         '''Retrieve and output collections for jekyll site'''
-        print(target)
+        #print(target)
         taxonList = yaml.load(open(target, 'r').read(),
                                    Loader=yaml.FullLoader)  # load taxon list
         for taxon in taxonList:
